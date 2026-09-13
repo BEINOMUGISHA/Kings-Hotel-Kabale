@@ -1,0 +1,7 @@
+{
+  "name": "Kings Hotel Kabale",
+  "description": "Experience comfortable hospitality at Kings Hotel in Kabale, Uganda. Situated in Kigongi along Kabale-Mbarara Road, featuring modern rooms, restaurant & bar, conference hall, and safari excursions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
