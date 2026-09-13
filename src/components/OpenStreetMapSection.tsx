@@ -13,70 +13,29 @@ import {
   Car, 
   Layers, 
   Map as MapIcon, 
-  Maximize2, 
   RotateCcw, 
-  Eye, 
-  Info,
   ShieldCheck,
   Mountain
 } from 'lucide-react';
 import { HOTEL_INFO, NEARBY_POINTS_OF_INTEREST, HOTEL_IMAGES } from '../data/hotelData';
 import { NearbyPointOfInterest } from '../types';
 
-type TileProviderId = 'carto_voyager' | 'osm_standard' | 'topo' | 'satellite';
+// 100% Free, Public, Community-Hosted OpenStreetMap Tile Server
+// Absolutely NO commercial tile services (No Carto, No Esri, No Google)
+// ZERO keys, ZERO tokens, ZERO watermarks.
+const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors';
 
-interface TileProvider {
-  id: TileProviderId;
-  name: string;
-  url: string;
-  attribution: string;
-  maxZoom: number;
-  subdomains?: string[];
-}
-
-const TILE_PROVIDERS: TileProvider[] = [
-  {
-    id: 'carto_voyager',
-    name: 'Voyager (Clean)',
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noreferrer">CARTO</a>',
-    maxZoom: 19,
-    subdomains: ['a', 'b', 'c', 'd'],
-  },
-  {
-    id: 'osm_standard',
-    name: 'OpenStreetMap',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors',
-    maxZoom: 19,
-    subdomains: ['a', 'b', 'c'],
-  },
-  {
-    id: 'topo',
-    name: 'Topographic (Hills)',
-    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OSM</a>, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
-    maxZoom: 17,
-    subdomains: ['a', 'b', 'c'],
-  },
-  {
-    id: 'satellite',
-    name: 'Satellite (Aerial)',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-    maxZoom: 18,
-  },
-];
+// Direct OpenStreetMap Embed URL (Fallback iframe directly hosted on OpenStreetMap.org)
+const OSM_EMBED_IFRAME_URL = 'https://www.openstreetmap.org/export/embed.html?bbox=29.965%2C-1.265%2C30.010%2C-1.235&layer=mapnik&marker=-1.250556%2C29.988056';
 
 export const OpenStreetMapSection: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
-  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const circlesLayerRef = useRef<L.LayerGroup | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
 
-  const [activeTab, setActiveTab] = useState<'map' | 'points' | 'streetview'>('map');
-  const [activeTileId, setActiveTileId] = useState<TileProviderId>('carto_voyager');
+  const [activeTab, setActiveTab] = useState<'interactive' | 'embed' | 'points' | 'streetview'>('interactive');
   const [selectedPoi, setSelectedPoi] = useState<NearbyPointOfInterest | null>(null);
   const [copiedPlusCode, setCopiedPlusCode] = useState(false);
   const [showRadiusCircles, setShowRadiusCircles] = useState(false);
@@ -85,7 +44,7 @@ export const OpenStreetMapSection: React.FC = () => {
 
   // Initialize and manage Leaflet map instance
   useEffect(() => {
-    if (activeTab !== 'map' || !mapContainerRef.current) return;
+    if (activeTab !== 'interactive' || !mapContainerRef.current) return;
 
     // Destroy existing instance if container changed or remounting
     if (mapInstanceRef.current) {
@@ -98,7 +57,7 @@ export const OpenStreetMapSection: React.FC = () => {
       zoom: 14,
       zoomControl: false,
       attributionControl: true,
-      scrollWheelZoom: false, // Prevents unintended page-scroll trap on mobile
+      scrollWheelZoom: false, // Prevents unintended page-scroll trap on touch screens
     });
 
     mapInstanceRef.current = map;
@@ -106,16 +65,13 @@ export const OpenStreetMapSection: React.FC = () => {
     // Custom zoom control positioned at bottom-right
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    // Initial Tile Layer
-    const selectedProvider = TILE_PROVIDERS.find((p) => p.id === activeTileId) || TILE_PROVIDERS[0];
-    const initialTileLayer = L.tileLayer(selectedProvider.url, {
-      attribution: selectedProvider.attribution,
-      maxZoom: selectedProvider.maxZoom,
-      subdomains: selectedProvider.subdomains || 'abc',
+    // Add Pure OpenStreetMap Official Tile Layer
+    L.tileLayer(OSM_TILE_URL, {
+      attribution: OSM_ATTRIBUTION,
+      maxZoom: 19,
     }).addTo(map);
-    tileLayerRef.current = initialTileLayer;
 
-    // Initialize Radius / Exploration Circles LayerGroup
+    // Initialize Radius / Proximity Circles LayerGroup
     const circlesLayer = L.layerGroup();
     circlesLayerRef.current = circlesLayer;
 
@@ -127,7 +83,7 @@ export const OpenStreetMapSection: React.FC = () => {
       fillOpacity: 0.08,
       weight: 1.5,
       dashArray: '4, 6',
-    }).bindTooltip('1 km Walkable Town Vicinity', { direction: 'top', className: 'text-xs' }).addTo(circlesLayer);
+    }).bindTooltip('1 km Walkable Town Proximity', { direction: 'top' }).addTo(circlesLayer);
 
     // 12.0 km Lake Bunyonyi scenic driving radius
     L.circle(hotelCoords, {
@@ -137,7 +93,7 @@ export const OpenStreetMapSection: React.FC = () => {
       fillOpacity: 0.04,
       weight: 1.5,
       dashArray: '6, 8',
-    }).bindTooltip('12 km Lake Bunyonyi Excursion Radius', { direction: 'top', className: 'text-xs' }).addTo(circlesLayer);
+    }).bindTooltip('12 km Lake Bunyonyi Excursion Radius', { direction: 'top' }).addTo(circlesLayer);
 
     // Clear marker references
     markersRef.current.clear();
@@ -184,14 +140,14 @@ export const OpenStreetMapSection: React.FC = () => {
             👑 Kings Hotel Kabale
           </div>
           <div class="absolute bottom-2 left-3 right-3 flex items-center justify-between text-xs">
-            <span class="text-amber-400 font-bold font-mono">★ 4.2 Google Reviews</span>
+            <span class="text-amber-400 font-bold font-mono">★ 4.2 Verified Reviews</span>
             <span class="text-emerald-400 font-semibold text-[11px]">Open 24/7</span>
           </div>
         </div>
         <div class="p-3.5 space-y-2.5">
           <div>
             <p class="text-[11px] text-stone-400 font-medium">Kigongi, Kabale Municipality, Uganda</p>
-            <p class="text-xs text-stone-200 mt-0.5 leading-snug">Comfortable accommodation, restaurant, solar hot showers, and Lake Bunyonyi safari gateway.</p>
+            <p class="text-xs text-stone-200 mt-0.5 leading-snug">Comfortable accommodation, restaurant, hot showers, and Lake Bunyonyi safari gateway.</p>
           </div>
           <div class="pt-2 border-t border-stone-800 flex items-center justify-between gap-2">
             <a 
@@ -200,13 +156,13 @@ export const OpenStreetMapSection: React.FC = () => {
               rel="noopener noreferrer"
               class="flex-1 text-center bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold py-1.5 px-3 rounded-lg transition-colors flex items-center justify-center gap-1"
             >
-              <span>🧭 Directions</span>
+              <span>🧭 Driving Route</span>
             </a>
             <a 
               href="tel:${HOTEL_INFO.phonePrimary}"
               class="bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-semibold py-1.5 px-3 rounded-lg border border-stone-700 transition-colors"
             >
-              📞 Call
+              📞 Front Desk
             </a>
           </div>
         </div>
@@ -223,7 +179,6 @@ export const OpenStreetMapSection: React.FC = () => {
     // 2. NEARBY POI CUSTOM MARKERS
     // ==========================================
     NEARBY_POINTS_OF_INTEREST.forEach((poi) => {
-      // Color-coding and icons based on category
       const isBunyonyi = poi.id === 'lake-bunyonyi';
       const isBwindi = poi.id === 'bwindi-gorillas';
       const isMarket = poi.id === 'kabale-market';
@@ -291,12 +246,12 @@ export const OpenStreetMapSection: React.FC = () => {
           <div class="mt-3 pt-2 border-t border-stone-800 flex items-center justify-between text-[11px]">
             <span class="text-stone-400">${poi.category}</span>
             <a 
-              href="https://www.google.com/maps/dir/?api=1&origin=-1.250556,29.988056&destination=${poi.lat},${poi.lng}" 
+              href="https://www.google.com/maps/dir//${poi.lat},${poi.lng}" 
               target="_blank" 
               rel="noopener noreferrer"
               class="text-amber-400 hover:text-amber-300 font-bold flex items-center gap-0.5"
             >
-              <span>Navigate →</span>
+              <span>Route →</span>
             </a>
           </div>
         </div>
@@ -313,7 +268,6 @@ export const OpenStreetMapSection: React.FC = () => {
       markersRef.current.set(poi.id, marker);
     });
 
-    // Invalidate map size after short tick to ensure container fills layout smoothly
     const resizeTimer = setTimeout(() => {
       map.invalidateSize();
     }, 150);
@@ -325,28 +279,7 @@ export const OpenStreetMapSection: React.FC = () => {
     };
   }, [activeTab]);
 
-  // Handle tile layer change
-  const handleTileChange = (providerId: TileProviderId) => {
-    setActiveTileId(providerId);
-    if (!mapInstanceRef.current) return;
-
-    const provider = TILE_PROVIDERS.find((p) => p.id === providerId);
-    if (!provider) return;
-
-    if (tileLayerRef.current) {
-      mapInstanceRef.current.removeLayer(tileLayerRef.current);
-    }
-
-    const newLayer = L.tileLayer(provider.url, {
-      attribution: provider.attribution,
-      maxZoom: provider.maxZoom,
-      subdomains: provider.subdomains || 'abc',
-    }).addTo(mapInstanceRef.current);
-
-    tileLayerRef.current = newLayer;
-  };
-
-  // Toggle Exploration / Radius circles
+  // Toggle Proximity circles
   const handleToggleRadius = () => {
     const nextState = !showRadiusCircles;
     setShowRadiusCircles(nextState);
@@ -374,8 +307,8 @@ export const OpenStreetMapSection: React.FC = () => {
   // Fly to specific POI
   const handleFlyToPoi = (poi: NearbyPointOfInterest) => {
     setSelectedPoi(poi);
-    if (activeTab !== 'map') {
-      setActiveTab('map');
+    if (activeTab !== 'interactive') {
+      setActiveTab('interactive');
     }
     setTimeout(() => {
       if (!mapInstanceRef.current) return;
@@ -407,30 +340,42 @@ export const OpenStreetMapSection: React.FC = () => {
         <div className="text-center max-w-3xl mx-auto mb-12">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold uppercase tracking-wider mb-3">
             <Compass className="w-3.5 h-3.5 text-amber-400" />
-            OpenStreetMap & Live Leaflet Navigation
+            OpenStreetMap Free Navigation
           </div>
           <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
             Find Us in Kigongi, Kabale
           </h2>
           <p className="text-stone-300 text-base sm:text-lg leading-relaxed">
-            Conveniently situated just off the main Kabale-Mbarara Road opposite the Police Barracks. Free and open-source interactive OpenStreetMap with terrain topography, local transit times, and turn-by-turn routing to Lake Bunyonyi and Bwindi Gorillas.
+            Conveniently situated just off the main Kabale-Mbarara Road opposite the Police Barracks. Free and open-source OpenStreetMap with live transit times and routing to Lake Bunyonyi and Bwindi Gorillas.
           </p>
         </div>
 
         {/* Navigation & Exploration Tabs */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6 border-b border-stone-800 pb-4">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => { setActiveTab('map'); setSelectedPoi(null); }}
+              onClick={() => { setActiveTab('interactive'); setSelectedPoi(null); }}
               className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 ${
-                activeTab === 'map' 
+                activeTab === 'interactive' 
                   ? 'bg-amber-500 text-stone-950 shadow-md' 
                   : 'bg-stone-800 text-stone-300 hover:text-white hover:bg-stone-750'
               }`}
             >
               <MapIcon className="w-4 h-4" />
               Interactive OpenStreetMap
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('embed')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 ${
+                activeTab === 'embed' 
+                  ? 'bg-amber-500 text-stone-950 shadow-md' 
+                  : 'bg-stone-800 text-stone-300 hover:text-white hover:bg-stone-750'
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+              Official OSM.org View
             </button>
             <button
               type="button"
@@ -442,7 +387,7 @@ export const OpenStreetMapSection: React.FC = () => {
               }`}
             >
               <Compass className="w-4 h-4" />
-              Nearby Excursions & Distances
+              Nearby Excursions
             </button>
             <button
               type="button"
@@ -453,8 +398,8 @@ export const OpenStreetMapSection: React.FC = () => {
                   : 'bg-stone-800 text-stone-300 hover:text-white hover:bg-stone-750'
               }`}
             >
-              <Layers className="w-4 h-4" />
-              Street & Entrance Guide
+              <ShieldCheck className="w-4 h-4" />
+              Entrance & Security Gate
             </button>
           </div>
 
@@ -472,10 +417,10 @@ export const OpenStreetMapSection: React.FC = () => {
           </div>
         </div>
 
-        {/* Main Grid: Leaflet Map Viewer (Left 7 Cols) + Intelligence Card (Right 5 Cols) */}
+        {/* Main Grid: Map Viewer (Left 7 Cols) + Contact & Transit Profile (Right 5 Cols) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* Map Viewer / Embed Container */}
+          {/* Map Viewer Container */}
           <div className="lg:col-span-7 bg-stone-950 border border-stone-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
             
             {/* Map Top Bar */}
@@ -483,49 +428,41 @@ export const OpenStreetMapSection: React.FC = () => {
               <div className="flex items-center gap-2 text-stone-300">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="font-semibold text-white">Kings Hotel Kabale</span>
-                <span className="text-stone-400 hidden sm:inline">• Lat: {HOTEL_INFO.coordinates.lat}, Lng: {HOTEL_INFO.coordinates.lng}</span>
+                <span className="text-stone-400 hidden sm:inline">• Kigongi, Kabale Municipality</span>
               </div>
 
-              {/* Layer switchers & Actions */}
-              <div className="flex items-center gap-2">
-                {/* Tile Selector */}
-                {activeTab === 'map' && (
-                  <div className="flex items-center bg-stone-800 rounded-lg p-0.5 border border-stone-700 text-[11px]">
-                    {TILE_PROVIDERS.map((provider) => (
-                      <button
-                        key={provider.id}
-                        type="button"
-                        onClick={() => handleTileChange(provider.id)}
-                        className={`px-2 py-1 rounded transition-colors font-medium ${
-                          activeTileId === provider.id
-                            ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
-                            : 'text-stone-400 hover:text-stone-200'
-                        }`}
-                        title={provider.name}
-                      >
-                        {provider.name.split(' ')[0]}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleCopyPlusCode}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-white transition-colors"
-                  title="Copy Google Plus Code"
-                >
-                  {copiedPlusCode ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-amber-400" />}
-                  <span className="font-mono">{HOTEL_INFO.plusCode}</span>
-                </button>
-              </div>
+              {/* Plus Code Copy */}
+              <button
+                type="button"
+                onClick={handleCopyPlusCode}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-white transition-colors"
+                title="Copy Plus Code"
+              >
+                {copiedPlusCode ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-amber-400" />}
+                <span className="font-mono">{HOTEL_INFO.plusCode}</span>
+              </button>
             </div>
 
-            {/* Interactive Map Surface */}
+            {/* Map Canvas Surface */}
             <div className="relative w-full h-[460px] sm:h-[520px] bg-stone-950 overflow-hidden">
               
-              {activeTab === 'streetview' ? (
-                /* Street & Entrance Visual Gallery */
+              {activeTab === 'embed' ? (
+                /* Official OpenStreetMap Direct Embed Iframe (100% Native OSM.org) */
+                <div className="relative w-full h-full">
+                  <iframe
+                    title="OpenStreetMap Official Embed"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    src={OSM_EMBED_IFRAME_URL}
+                    className="w-full h-full"
+                  />
+                  <div className="absolute bottom-2 left-2 bg-stone-950/90 text-stone-300 text-[11px] px-3 py-1 rounded-lg border border-stone-800 backdrop-blur-md">
+                    Official OpenStreetMap.org Embed (Zero Keys)
+                  </div>
+                </div>
+              ) : activeTab === 'streetview' ? (
+                /* Street & Entrance Visual Guide */
                 <div className="relative w-full h-full flex flex-col md:flex-row">
                   <div className="relative flex-1 h-1/2 md:h-full overflow-hidden group">
                     <img
@@ -588,11 +525,11 @@ export const OpenStreetMapSection: React.FC = () => {
                   <div className="flex items-center justify-between pb-3 border-b border-stone-800">
                     <div>
                       <h3 className="font-serif text-lg font-bold text-white">Nearby Landmarks & Transit Points</h3>
-                      <p className="text-xs text-stone-400">Click any destination to fly to its coordinates on the live OpenStreetMap.</p>
+                      <p className="text-xs text-stone-400">Click any destination to fly to its coordinates on the live map.</p>
                     </div>
                     <button
                       type="button"
-                      onClick={() => setActiveTab('map')}
+                      onClick={() => setActiveTab('interactive')}
                       className="text-xs bg-amber-500 text-stone-950 font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-amber-400 transition-colors"
                     >
                       <MapIcon className="w-3.5 h-3.5" />
@@ -638,13 +575,12 @@ export const OpenStreetMapSection: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                /* Live OpenStreetMap Leaflet Canvas */
+                /* Pure Leaflet with Official OpenStreetMap Tiles (Zero Keys) */
                 <div className="relative w-full h-full">
                   <div ref={mapContainerRef} className="w-full h-full" />
 
-                  {/* Floating Action Controls on Top-Left of Map */}
+                  {/* Floating Action Controls on Top-Left */}
                   <div className="absolute top-3 left-3 z-[25] flex flex-col gap-2">
-                    {/* Recenter button */}
                     <button
                       type="button"
                       onClick={handleRecenterHotel}
@@ -655,7 +591,6 @@ export const OpenStreetMapSection: React.FC = () => {
                       <span className="hidden sm:inline">Recenter Hotel</span>
                     </button>
 
-                    {/* Toggle Exploration Radii */}
                     <button
                       type="button"
                       onClick={handleToggleRadius}
@@ -664,17 +599,17 @@ export const OpenStreetMapSection: React.FC = () => {
                           ? 'bg-amber-500 text-stone-950 border-amber-400 font-bold'
                           : 'bg-stone-900/90 text-stone-300 hover:text-white border-stone-700'
                       }`}
-                      title="Toggle 1km & 12km exploration radius"
+                      title="Toggle 1km town & 12km lake radius"
                     >
                       <Compass className="w-3.5 h-3.5" />
                       <span className="hidden sm:inline">{showRadiusCircles ? 'Hide Radii' : 'Show Radii'}</span>
                     </button>
                   </div>
 
-                  {/* OpenStreetMap Floating Badge */}
+                  {/* OpenStreetMap Attribution Badge */}
                   <div className="absolute bottom-3 left-3 z-[25] bg-stone-950/90 backdrop-blur-md border border-stone-800 px-3 py-1.5 rounded-lg shadow-xl flex items-center gap-2 text-[11px] text-stone-300">
                     <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                    <span>OpenStreetMap Leaflet Engine</span>
+                    <span>Free OpenStreetMap (No Keys Required)</span>
                     <a
                       href={openStreetMapWebUrl}
                       target="_blank"
@@ -719,7 +654,6 @@ export const OpenStreetMapSection: React.FC = () => {
             {/* Verified Place Profile Card */}
             <div className="bg-stone-950 border border-stone-800 rounded-2xl p-6 shadow-xl relative">
               
-              {/* Top OpenStreetMap & Hospitality Badge */}
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
@@ -783,7 +717,7 @@ export const OpenStreetMapSection: React.FC = () => {
                   </div>
                 </div>
 
-                {/* OpenStreetMap Coordinates & Plus Code */}
+                {/* Coordinates & Plus Code */}
                 <div className="flex items-start gap-3">
                   <Compass className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <div className="flex-1">
@@ -805,7 +739,7 @@ export const OpenStreetMapSection: React.FC = () => {
 
               </div>
 
-              {/* Direct GPS Action Buttons */}
+              {/* Direct Driving Navigation Action Buttons */}
               <div className="mt-6 pt-4 border-t border-stone-800 flex flex-col sm:flex-row gap-2.5">
                 <a
                   href={HOTEL_INFO.googleDirectionsUrl}
@@ -823,7 +757,7 @@ export const OpenStreetMapSection: React.FC = () => {
                   className="bg-stone-900 hover:bg-stone-800 text-stone-200 border border-stone-700 py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
                 >
                   <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
-                  <span>OpenStreetMap</span>
+                  <span>OpenStreetMap.org</span>
                 </a>
               </div>
 
@@ -842,9 +776,7 @@ export const OpenStreetMapSection: React.FC = () => {
                   className="flex items-center justify-between p-2 rounded-lg bg-stone-900/60 hover:bg-stone-800/80 border border-stone-800/60 cursor-pointer transition-colors"
                 >
                   <div>
-                    <p className="font-semibold text-white flex items-center gap-1">
-                      <span>Lake Bunyonyi (Canoes & 29 Islands)</span>
-                    </p>
+                    <p className="font-semibold text-white">Lake Bunyonyi (Canoes & 29 Islands)</p>
                     <p className="text-[11px] text-stone-400">Africa's 2nd deepest lake • bilharzia-free</p>
                   </div>
                   <span className="text-amber-400 font-bold font-mono">11.8 km (15 mins)</span>
@@ -898,5 +830,5 @@ export const OpenStreetMapSection: React.FC = () => {
   );
 };
 
-// Re-export as GoogleMapsSection for backward compatibility with existing imports
 export const GoogleMapsSection = OpenStreetMapSection;
+export default OpenStreetMapSection;

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { RoomsSection } from './components/RoomsSection';
@@ -11,39 +11,15 @@ import { PackagesSection } from './components/PackagesSection';
 import { DiningSection } from './components/DiningSection';
 import { Footer } from './components/Footer';
 import { FloatingConcierge } from './components/FloatingConcierge';
+import { OpenStreetMapSection } from './components/OpenStreetMapSection';
+import { GoogleMapsGallerySection } from './components/GoogleMapsGallerySection';
+import { SafariExcursions } from './components/SafariExcursions';
+import { ConferenceSection } from './components/ConferenceSection';
+import { ReviewsSection } from './components/ReviewsSection';
+import { BookingModal } from './components/BookingModal';
+import { ManagerPitchDrawer } from './components/ManagerPitchDrawer';
+import { InteractiveGalleryModal } from './components/InteractiveGalleryModal';
 import { Room, HotelPackage } from './types';
-
-// Code-split below-the-fold heavy modules & interactive modals
-const OpenStreetMapSection = lazy(() =>
-  import('./components/OpenStreetMapSection').then((m) => ({ default: m.OpenStreetMapSection }))
-);
-const GoogleMapsGallerySection = lazy(() =>
-  import('./components/GoogleMapsGallerySection').then((m) => ({ default: m.GoogleMapsGallerySection }))
-);
-const SafariExcursions = lazy(() =>
-  import('./components/SafariExcursions').then((m) => ({ default: m.SafariExcursions }))
-);
-const ConferenceSection = lazy(() =>
-  import('./components/ConferenceSection').then((m) => ({ default: m.ConferenceSection }))
-);
-const ReviewsSection = lazy(() =>
-  import('./components/ReviewsSection').then((m) => ({ default: m.ReviewsSection }))
-);
-const BookingModal = lazy(() =>
-  import('./components/BookingModal').then((m) => ({ default: m.BookingModal }))
-);
-const ManagerPitchDrawer = lazy(() =>
-  import('./components/ManagerPitchDrawer').then((m) => ({ default: m.ManagerPitchDrawer }))
-);
-const InteractiveGalleryModal = lazy(() =>
-  import('./components/InteractiveGalleryModal').then((m) => ({ default: m.InteractiveGalleryModal }))
-);
-
-const SectionLoader: React.FC = () => (
-  <div className="py-16 flex items-center justify-center">
-    <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-  </div>
-);
 
 export default function App() {
   const [currency, setCurrency] = useState<'USD' | 'UGX'>('UGX');
@@ -101,14 +77,12 @@ export default function App() {
 
       {/* Manager Value Pitch Deck (Loaded on-demand) */}
       {isManagementBriefOpen && (
-        <Suspense fallback={null}>
-          <ManagerPitchDrawer
-            onOpenBookingDemo={handleOpenBooking}
-            isOpen={isManagementBriefOpen}
-            onOpen={() => setIsManagementBriefOpen(true)}
-            onClose={() => setIsManagementBriefOpen(false)}
-          />
-        </Suspense>
+        <ManagerPitchDrawer
+          onOpenBookingDemo={handleOpenBooking}
+          isOpen={isManagementBriefOpen}
+          onOpen={() => setIsManagementBriefOpen(true)}
+          onClose={() => setIsManagementBriefOpen(false)}
+        />
       )}
 
       {/* Main Content Sections */}
@@ -121,9 +95,7 @@ export default function App() {
         />
 
         {/* Interactive OpenStreetMap Leaflet & Location Showcase */}
-        <Suspense fallback={<SectionLoader />}>
-          <OpenStreetMapSection />
-        </Suspense>
+        <OpenStreetMapSection />
 
         {/* Accommodation (50 En-suite Rooms & Suites) */}
         <RoomsSection
@@ -132,15 +104,13 @@ export default function App() {
         />
 
         {/* Google Maps Verified Photo Gallery (Complete Image Collection) */}
-        <Suspense fallback={<SectionLoader />}>
-          <GoogleMapsGallerySection
-            onOpenPhotoLightbox={(index) => {
-              setSelectedPhotoIndex(index);
-              setIsGalleryOpen(true);
-            }}
-            onOpenBooking={handleOpenBooking}
-          />
-        </Suspense>
+        <GoogleMapsGallerySection
+          onOpenPhotoLightbox={(index) => {
+            setSelectedPhotoIndex(index);
+            setIsGalleryOpen(true);
+          }}
+          onOpenBooking={handleOpenBooking}
+        />
 
         {/* Curated Kigezi Stay & Safari Packages */}
         <PackagesSection
@@ -159,48 +129,38 @@ export default function App() {
         />
 
         {/* Safari & Tour Base (Lake Bunyonyi & Bwindi Gorillas) */}
-        <Suspense fallback={<SectionLoader />}>
-          <SafariExcursions onOpenBooking={handleOpenBooking} />
-        </Suspense>
+        <SafariExcursions onOpenBooking={handleOpenBooking} />
 
         {/* Conference & Event Facilities */}
-        <Suspense fallback={<SectionLoader />}>
-          <ConferenceSection onOpenBooking={handleOpenBooking} />
-        </Suspense>
+        <ConferenceSection onOpenBooking={handleOpenBooking} />
 
         {/* Google Maps Verified Reviews */}
-        <Suspense fallback={<SectionLoader />}>
-          <ReviewsSection />
-        </Suspense>
+        <ReviewsSection />
       </main>
 
       {/* Footer */}
       <Footer onOpenManagementBrief={() => setIsManagementBriefOpen(true)} />
 
-      {/* Interactive Booking & Reservation Pass Generator Modal (Loaded on-demand) */}
+      {/* Interactive Booking & Reservation Pass Generator Modal */}
       {isBookingOpen && (
-        <Suspense fallback={null}>
-          <BookingModal
-            isOpen={isBookingOpen}
-            onClose={() => setIsBookingOpen(false)}
-            selectedRoom={selectedRoom}
-            selectedPackage={selectedPackage}
-            currency={currency}
-            initialSearchParams={searchParams}
-          />
-        </Suspense>
+        <BookingModal
+          isOpen={isBookingOpen}
+          onClose={() => setIsBookingOpen(false)}
+          selectedRoom={selectedRoom}
+          selectedPackage={selectedPackage}
+          currency={currency}
+          initialSearchParams={searchParams}
+        />
       )}
 
-      {/* HD Photographic Walkthrough Gallery Lightbox (Loaded on-demand) */}
+      {/* HD Photographic Walkthrough Gallery Lightbox */}
       {isGalleryOpen && (
-        <Suspense fallback={null}>
-          <InteractiveGalleryModal
-            isOpen={isGalleryOpen}
-            onClose={() => setIsGalleryOpen(false)}
-            onOpenBooking={handleOpenBooking}
-            initialPhotoIndex={selectedPhotoIndex}
-          />
-        </Suspense>
+        <InteractiveGalleryModal
+          isOpen={isGalleryOpen}
+          onClose={() => setIsGalleryOpen(false)}
+          onOpenBooking={handleOpenBooking}
+          initialPhotoIndex={selectedPhotoIndex}
+        />
       )}
 
       {/* 24/7 Front Desk WhatsApp Concierge Floating Assistant */}

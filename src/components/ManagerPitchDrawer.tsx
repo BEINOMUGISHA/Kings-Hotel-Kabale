@@ -138,7 +138,7 @@ export const ManagerPitchDrawer: React.FC<ManagerPitchDrawerProps> = ({
                   <div>
                     <h5 className="text-sm font-bold text-white">Mbarara-Kabale-Katuna Highway Footfall</h5>
                     <p className="text-xs text-stone-300 mt-1 leading-relaxed">
-                      Integrated Google Maps API with verified coordinates <span className="font-mono text-amber-300">-1.250556, 29.988056</span> and Plus Code <span className="font-mono text-amber-300">PJXX+96</span> captures transit travelers driving towards Rwanda or Lake Bunyonyi looking for secure parking and a quiet overnight stay.
+                      Integrated OpenStreetMap live navigation with verified coordinates <span className="font-mono text-amber-300">-1.250556, 29.988056</span> and Plus Code <span className="font-mono text-amber-300">PJXX+96</span> captures transit travelers driving towards Rwanda or Lake Bunyonyi looking for secure parking and a quiet overnight stay.
                     </p>
                   </div>
                 </div>
@@ -209,3 +209,5 @@ export const ManagerPitchDrawer: React.FC<ManagerPitchDrawerProps> = ({
     </>
   );
 };
+
+export default ManagerPitchDrawer;

@@ -501,3 +501,5 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     </div>
   );
 };
+
+export default BookingModal;

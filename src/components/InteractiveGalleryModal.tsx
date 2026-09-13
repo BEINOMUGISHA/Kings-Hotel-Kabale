@@ -208,3 +208,5 @@ export const InteractiveGalleryModal: React.FC<InteractiveGalleryModalProps> = (
     </div>
   );
 };
+
+export default InteractiveGalleryModal;
